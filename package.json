@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "wdio run ./wdio.conf.ts",
     "wdio": "wdio run ./wdio.conf.ts",
     "test:component": "wdio run ./wdio.component.conf.ts"
   },
