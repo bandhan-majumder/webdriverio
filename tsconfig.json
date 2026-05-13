@@ -11,7 +11,12 @@
             "node",
             "@wdio/globals/types",
             "expect-webdriverio",
-            "@wdio/mocha-framework"
+            "@wdio/mocha-framework",
+            "@wdio/browser-runner/types"
+        ],
+        "typeRoots": [
+            "./node_modules/@types",
+            "./node_modules/@wdio"
         ],
         "skipLibCheck": true,
         "noEmit": true,
@@ -21,10 +26,12 @@
         "strict": true,
         "noUnusedLocals": true,
         "noUnusedParameters": true,
-        "noFallthroughCasesInSwitch": true
+        "noFallthroughCasesInSwitch": true,
+        "jsx": "react-jsx"
     },
     "include": [
         "test",
-        "wdio.conf.ts"
+        "wdio.conf.ts",
+        "wdio.component.conf.ts"
     ]
 }

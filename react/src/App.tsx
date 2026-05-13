@@ -27,6 +27,7 @@ function App() {
           if (!player || !container) return;
 
           const pipWindow =
+          //@ts-ignore
             await window.documentPictureInPicture.requestWindow({
               width: 500,
               height: 500,

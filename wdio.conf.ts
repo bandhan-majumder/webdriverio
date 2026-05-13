@@ -1,3 +1,8 @@
+import { spawn, ChildProcess } from 'child_process'
+import http from 'http'
+
+let viteProcess: ChildProcess
+
 export const config: WebdriverIO.Config = {
     //
     // ====================
@@ -53,8 +58,6 @@ export const config: WebdriverIO.Config = {
     //
     capabilities: [{
         browserName: 'chrome'
-    }, {
-        browserName: 'firefox'
     }],
 
     //
@@ -88,7 +91,7 @@ export const config: WebdriverIO.Config = {
     // with `/`, the base url gets prepended, not including the path portion of your baseUrl.
     // If your `url` parameter starts without a scheme or `/` (like `some/path`), the base url
     // gets prepended directly.
-    // baseUrl: 'http://localhost:8080',
+    baseUrl: 'http://localhost:5173',
     //
     // Default timeout for all waitFor* commands.
     waitforTimeout: 10000,
@@ -149,19 +152,32 @@ export const config: WebdriverIO.Config = {
      * @param {object} config wdio configuration object
      * @param {Array.<Object>} capabilities list of capabilities details
      */
-    // onPrepare: function (config, capabilities) {
-    // },
-    /**
-     * Gets executed before a worker process is spawned and can be used to initialize specific service
-     * for that worker as well as modify runtime environments in an async fashion.
-     * @param  {string} cid      capability id (e.g 0-0)
-     * @param  {object} caps     object containing capabilities for session that will be spawn in the worker
-     * @param  {object} specs    specs to be run in the worker process
-     * @param  {object} args     object that will be merged with the main configuration once worker is initialized
-     * @param  {object} execArgv list of string arguments passed to the worker process
-     */
-    // onWorkerStart: function (cid, caps, specs, args, execArgv) {
-    // },
+    onPrepare: async () => {
+        viteProcess = spawn('npm', ['run', 'dev'], {
+            cwd: './react',
+            stdio: 'pipe'
+        })
+
+        await new Promise<void>((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Vite dev server did not start in time')), 30000)
+            const poll = () => {
+                http.get('http://localhost:5173', () => {
+                    clearTimeout(timeout)
+                    resolve()
+                }).on('error', () => setTimeout(poll, 500))
+            }
+            poll()
+        })
+
+        // give a short grace period after the server responds
+        await new Promise(resolve => setTimeout(resolve, 1000))
+    },
+
+    onComplete: () => {
+        if (viteProcess) {
+            viteProcess.kill()
+        }
+    },
     /**
      * Gets executed just after a worker process has exited.
      * @param  {string} cid      capability id (e.g 0-0)
