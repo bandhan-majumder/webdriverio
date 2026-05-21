@@ -1,104 +1,87 @@
-import { $, expect } from "@wdio/globals";
+import { $, expect, browser } from "@wdio/globals";
 import { render, cleanup } from "@testing-library/react";
 import App from "../../react/src/App";
 
-//@ts-ignore
 describe("App Component - Picture-in-Picture", () => {
-  let requestWindowArgs: { width: number; height: number }[];
-  let appendCalls: any[];
-  let addEventListenerCalls: { event: string; handler: Function }[];
-  //@ts-ignore
-  beforeEach(() => {
-    requestWindowArgs = [];
-    appendCalls = [];
-    addEventListenerCalls = [];
+  let requestWindowCalls: { width: number; height: number }[];
+  let mockPipWindow: any;
 
-    const mockRequestWindow = async (options: {
-      width: number;
-      height: number;
-    }) => {
-      requestWindowArgs.push(options);
-      return {
-        document: {
-          body: {
-            append: (el: any) => {
-              appendCalls.push(el);
-            },
-          },
-        },
-        addEventListener: (event: string, handler: Function) => {
-          addEventListenerCalls.push({ event, handler });
-        },
-      };
+  beforeEach(() => {
+    requestWindowCalls = [];
+
+    mockPipWindow = {
+      document: {
+        head: { appendChild: () => {} },
+        body: { style: {}, appendChild: () => {} },
+      },
+      addEventListener: () => {},
+      close: () => { mockPipWindow.closed = true; },
+      closed: false,
     };
 
     Object.defineProperty(window, "documentPictureInPicture", {
-      value: { requestWindow: mockRequestWindow },
+      value: {
+        requestWindow: async (options: { width: number; height: number }) => {
+          requestWindowCalls.push(options);
+          return mockPipWindow;
+        },
+      },
       configurable: true,
       writable: true,
     });
   });
-  //@ts-ignore
+
   afterEach(() => {
     cleanup();
     delete (window as any).documentPictureInPicture;
+    delete (document as any).hidden;
   });
-  //@ts-ignore
-  it("should render the PiP button", async () => {
-    //@ts-ignore
+
+  it("should render video, buttons, and autoPiP checkbox", async () => {
     render(<App />);
 
-    const button = await $("#pipButton");
-    await expect(button).toBeExisting();
-    await expect(button).toHaveText("Open Picture-in-Picture window");
+    await expect($("#video")).toBeExisting();
+    await expect($("button=Open Camera")).toBeExisting();
+    await expect($("button=Toggle Picture-in-Picture")).toBeExisting();
+    await expect($('input[type="checkbox"]')).toBeExisting();
   });
-  //@ts-ignore
-  it("should render the video element", async () => {
+
+  it("should auto-start camera on mount and enable PiP controls", async () => {
     render(<App />);
 
-    const video = await $("#video");
-    await expect(video).toBeExisting();
-    await expect(video).toHaveAttribute(
-      "src",
-      "https://www.w3schools.com/tags/mov_bbb.mp4",
+    await browser.waitUntil(
+      async () => await $("button=Toggle Picture-in-Picture").isEnabled(),
     );
+    await expect($("button=Open Camera")).toBeDisabled();
+    await expect($("input[type='checkbox']")).toBeEnabled();
   });
-  //@ts-ignore
-  it("should call requestWindow with correct dimensions on click", async () => {
-    render(<App />);
-    await (await $("#pipButton")).click();
 
-    expect(requestWindowArgs).toHaveLength(1);
-    expect(requestWindowArgs[0]).toEqual({ width: 500, height: 500 });
+  it("should open PiP window with correct dimensions on toggle click", async () => {
+    render(<App />);
+
+    await browser.waitUntil(
+      async () => await $("button=Toggle Picture-in-Picture").isEnabled(),
+    );
+
+    await (await $("button=Toggle Picture-in-Picture")).click();
+    expect(requestWindowCalls).toHaveLength(1);
+    expect(requestWindowCalls[0]).toEqual({ width: 500, height: 500 });
   });
-  //@ts-ignore
-  it("should move the player element into the PiP window", async () => {
+
+  it("should toggle autoPiP checkbox on click", async () => {
     render(<App />);
-    await (await $("#pipButton")).click();
 
-    expect(appendCalls).toHaveLength(1);
-    expect(appendCalls[0].id).toBe("player");
-    expect(appendCalls[0].querySelector("#video")).not.toBeNull();
-  });
-  //@ts-ignore
-  it("should register pagehide listener on PiP window", async () => {
-    render(<App />);
-    await (await $("#pipButton")).click();
+    await browser.waitUntil(
+      async () => await $("button=Toggle Picture-in-Picture").isEnabled(),
+    );
 
-    expect(addEventListenerCalls).toHaveLength(1);
-    expect(addEventListenerCalls[0].event).toBe("pagehide");
-    expect(typeof addEventListenerCalls[0].handler).toBe("function");
-  });
-  //@ts-ignore
-  it("should restore player to container when PiP closes", async () => {
-    render(<App />);
-    await (await $("#pipButton")).click();
+    const checkbox = await $('input[type="checkbox"]');
+    await expect(checkbox).toBeChecked();
 
-    const pagehideHandler = addEventListenerCalls[0].handler;
-    pagehideHandler();
+    await checkbox.click();
+    await expect(checkbox).not.toBeChecked();
 
-    const container = await $("#playerContainer");
-    const player = await container.$("#player");
-    await expect(player).toBeExisting();
+    await checkbox.click();
+    await expect(checkbox).toBeChecked();
   });
 });

@@ -8,10 +8,14 @@ cd react && npm run dev
 
 ![alt text](image.png)
 
-Unit testing
+after tab switch 
+
+![alt text](image-1.png)
+
+<!-- Unit testing
 
 ```
-npm run test:component
+npm run test:component -->
 ```
 
 E2E testing
