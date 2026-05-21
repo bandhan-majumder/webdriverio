@@ -10,7 +10,7 @@ function App() {
 
   const [isMicrophoneActive, setIsMicrophoneActive] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
-  const [autoPip, setAutoPip] = useState(false);
+  const [autoPip, setAutoPip] = useState(true);
   const [cameraStarted, setCameraStarted] = useState(false);
 
   const log = (msg: string) => console.log(msg);
@@ -20,7 +20,6 @@ function App() {
     const container = containerRef.current;
     if (!player || !container) return;
     if (!("documentPictureInPicture" in window)) {
-      // Fallback to element PiP
       const video = videoRef.current;
       if (!video) return;
       if (video !== document.pictureInPictureElement) {
@@ -51,7 +50,30 @@ function App() {
     });
   };
 
-  // Mirrors: openCameraButton click
+  // Register enterpictureinpicture handler on mount
+  useEffect(() => {
+    try {
+      navigator.mediaSession.setActionHandler(
+        "enterpictureinpicture" as MediaSessionAction,
+        async (details) => {
+          const reason = (details as any).enterPictureInPictureReason;
+          if (reason === "useraction") {
+            log('> User clicked "Enter Picture-in-Picture" icon.');
+          } else if (reason === "contentoccluded") {
+            log("> Automatically enter picture-in-picture.");
+          }
+          await openDocumentPip();
+        }
+      );
+    } catch (error) {
+      log('Warning! The "enterpictureinpicture" media session action is not supported.');
+    }
+
+    return () => {
+      navigator.mediaSession.setActionHandler("enterpictureinpicture" as MediaSessionAction, null);
+    };
+  }, []);
+
   const handleOpenCamera = async () => {
     const video = videoRef.current;
     if (!video) return;
@@ -68,7 +90,11 @@ function App() {
     }
   };
 
-  // Mirrors: togglePipButton click
+  // Auto-open camera on mount
+  useEffect(() => {
+    handleOpenCamera();
+  }, []);
+
   const handleTogglePip = async () => {
     try {
       await openDocumentPip();
@@ -77,7 +103,6 @@ function App() {
     }
   };
 
-  // Mirrors: autoPipCheckbox input
   const handleAutoPipToggle = () => {
     const next = !autoPip;
     setAutoPip(next);
@@ -105,7 +130,6 @@ function App() {
     }
   };
 
-  // Mirrors: togglemicrophone, togglecamera, hangup handlers
   useEffect(() => {
     try {
       navigator.mediaSession.setActionHandler("togglemicrophone" as MediaSessionAction, () => {
@@ -154,7 +178,6 @@ function App() {
       log('Warning! The "hangup" media session action is not supported.');
     }
 
-    // Close PiP when returning to tab
     const onVisibilityChange = () => {
       if (!document.hidden && pipWindowRef.current && !pipWindowRef.current.closed) {
         if (playerRef.current) containerRef.current?.appendChild(playerRef.current);
@@ -166,7 +189,6 @@ function App() {
 
     return () => {
       document.removeEventListener("visibilitychange", onVisibilityChange);
-      navigator.mediaSession.setActionHandler("enterpictureinpicture" as MediaSessionAction, null);
       navigator.mediaSession.setActionHandler("togglemicrophone" as MediaSessionAction, null);
       navigator.mediaSession.setActionHandler("togglecamera" as MediaSessionAction, null);
       navigator.mediaSession.setActionHandler("hangup" as MediaSessionAction, null);
