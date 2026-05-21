@@ -23,14 +23,14 @@ describe("Document Picture-in-Picture", () => {
       return handles.length === 2;
     });
 
-    await browser.pause(3000);
+    await browser.pause(1200);
 
     // switch to PiP window
     const handles = await browser.getWindowHandles();
     const pipHandle = handles.find((h) => h !== originalHandle);
     await browser.switchToWindow(pipHandle!);
 
-    await browser.pause(3000);
+    await browser.pause(1200);
 
     // verify video exists in PiP window
     await expect(PipPage.video).toBeExisting();
@@ -41,7 +41,7 @@ describe("Document Picture-in-Picture", () => {
     // switch back to main window
     await browser.switchToWindow(originalHandle);
 
-    await browser.pause(3000);
+    await browser.pause(1200);
 
     // verify player element is restored inside the container
     await expect(PipPage.player).toBeExisting();
