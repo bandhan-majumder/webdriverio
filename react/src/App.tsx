@@ -3,17 +3,17 @@ import { useEffect, useRef, useState } from "react";
 import "./App.css";
 
 function App() {
-  const videoRef = useRef(null);
-  const playerRef = useRef(null);
-  const containerRef = useRef(null);
-  const pipWindowRef = useRef(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const playerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const pipWindowRef = useRef<Window | null>(null);
 
   const [isMicrophoneActive, setIsMicrophoneActive] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [autoPip, setAutoPip] = useState(false);
   const [cameraStarted, setCameraStarted] = useState(false);
 
-  const log = (msg) => console.log(msg);
+  const log = (msg: string) => console.log(msg);
 
   const openDocumentPip = async () => {
     const player = playerRef.current;
@@ -22,6 +22,7 @@ function App() {
     if (!("documentPictureInPicture" in window)) {
       // Fallback to element PiP
       const video = videoRef.current;
+      if (!video) return;
       if (video !== document.pictureInPictureElement) {
         await video.requestPictureInPicture();
       } else {
@@ -31,10 +32,10 @@ function App() {
     }
     if (pipWindowRef.current && !pipWindowRef.current.closed) return;
 
-    const pipWindow = await window.documentPictureInPicture.requestWindow({
+    const pipWindow = await (window as any).documentPictureInPicture.requestWindow({
       width: 500,
       height: 500,
-    });
+    }) as Window;
     pipWindowRef.current = pipWindow;
 
     document.querySelectorAll('link[rel="stylesheet"], style').forEach((style) => {
@@ -53,6 +54,7 @@ function App() {
   // Mirrors: openCameraButton click
   const handleOpenCamera = async () => {
     const video = videoRef.current;
+    if (!video) return;
     try {
       const constraints = { video: true, audio: true };
       video.srcObject = await navigator.mediaDevices.getUserMedia(constraints);
@@ -81,17 +83,18 @@ function App() {
     setAutoPip(next);
 
     if (!next) {
-      navigator.mediaSession.setActionHandler("enterpictureinpicture", null);
+      navigator.mediaSession.setActionHandler("enterpictureinpicture" as MediaSessionAction, null);
       return;
     }
 
     try {
       navigator.mediaSession.setActionHandler(
-        "enterpictureinpicture",
-        async ({ enterPictureInPictureReason }) => {
-          if (enterPictureInPictureReason === "useraction") {
+        "enterpictureinpicture" as MediaSessionAction,
+        async (details) => {
+          const reason = (details as any).enterPictureInPictureReason;
+          if (reason === "useraction") {
             log('> User clicked "Enter Picture-in-Picture" icon.');
-          } else if (enterPictureInPictureReason === "contentoccluded") {
+          } else if (reason === "contentoccluded") {
             log("> Automatically enter picture-in-picture.");
           }
           await openDocumentPip();
@@ -105,7 +108,7 @@ function App() {
   // Mirrors: togglemicrophone, togglecamera, hangup handlers
   useEffect(() => {
     try {
-      navigator.mediaSession.setActionHandler("togglemicrophone", () => {
+      navigator.mediaSession.setActionHandler("togglemicrophone" as MediaSessionAction, () => {
         log('> User clicked "Toggle Mic" icon.');
         const next = !isMicrophoneActive;
         setIsMicrophoneActive(next);
@@ -116,7 +119,7 @@ function App() {
     }
 
     try {
-      navigator.mediaSession.setActionHandler("togglecamera", () => {
+      navigator.mediaSession.setActionHandler("togglecamera" as MediaSessionAction, () => {
         log('> User clicked "Toggle Camera" icon.');
         const next = !isCameraActive;
         setIsCameraActive(next);
@@ -127,11 +130,12 @@ function App() {
     }
 
     try {
-      navigator.mediaSession.setActionHandler("hangup", () => {
+      navigator.mediaSession.setActionHandler("hangup" as MediaSessionAction, () => {
         log('> User clicked "Hang Up" icon.');
         const video = videoRef.current;
-        const tracks = video.srcObject?.getTracks() ?? [];
-        tracks.forEach((track) => track.stop());
+        if (!video) return;
+        const tracks = (video.srcObject as MediaStream)?.getTracks() ?? [];
+        tracks.forEach((track: MediaStreamTrack) => track.stop());
         video.srcObject = null;
 
         if (pipWindowRef.current && !pipWindowRef.current.closed) {
@@ -153,7 +157,7 @@ function App() {
     // Close PiP when returning to tab
     const onVisibilityChange = () => {
       if (!document.hidden && pipWindowRef.current && !pipWindowRef.current.closed) {
-        containerRef.current?.appendChild(playerRef.current);
+        if (playerRef.current) containerRef.current?.appendChild(playerRef.current);
         pipWindowRef.current.close();
         pipWindowRef.current = null;
       }
@@ -162,10 +166,10 @@ function App() {
 
     return () => {
       document.removeEventListener("visibilitychange", onVisibilityChange);
-      navigator.mediaSession.setActionHandler("enterpictureinpicture", null);
-      navigator.mediaSession.setActionHandler("togglemicrophone", null);
-      navigator.mediaSession.setActionHandler("togglecamera", null);
-      navigator.mediaSession.setActionHandler("hangup", null);
+      navigator.mediaSession.setActionHandler("enterpictureinpicture" as MediaSessionAction, null);
+      navigator.mediaSession.setActionHandler("togglemicrophone" as MediaSessionAction, null);
+      navigator.mediaSession.setActionHandler("togglecamera" as MediaSessionAction, null);
+      navigator.mediaSession.setActionHandler("hangup" as MediaSessionAction, null);
     };
   }, [isMicrophoneActive, isCameraActive]);
 
